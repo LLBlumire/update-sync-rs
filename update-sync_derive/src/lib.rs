@@ -1,15 +1,21 @@
-use quote::ToTokens;
+use proc_macro::TokenStream as TokenStream1;
+use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
+use quote::{format_ident, quote, ToTokens};
+use syn::{
+    parse_macro_input, punctuated::Punctuated, Data, DataEnum, DataStruct, DeriveInput, Field,
+    Fields, FieldsNamed, FieldsUnnamed, Ident, Index, Token, Variant,
+};
 
 /// Automatically derives `UpdateSync` to update the fields of structs, so long as they are all themselves `UpdateSync`
 /// It will do the same for enums, but syncing to different variants where appropriate
 #[proc_macro_derive(UpdateSync)]
-pub fn derive_update_sync(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let syn::DeriveInput { ident, data, .. } = syn::parse_macro_input!(input as syn::DeriveInput);
+pub fn derive_update_sync(input: TokenStream1) -> TokenStream1 {
+    let DeriveInput { ident, data, .. } = parse_macro_input!(input as DeriveInput);
 
     match data {
-        syn::Data::Struct(syn::DataStruct { fields, .. }) => {
+        Data::Struct(DataStruct { fields, .. }) => {
             let update_fields = struct_update_fields(&fields);
-            quote::quote! {
+            quote! {
                 impl ::update_sync::UpdateSync for #ident {
                     fn update_sync(last_base: Self, new_base: Self, set: Self) -> Self {
                         #ident #update_fields
@@ -17,25 +23,25 @@ pub fn derive_update_sync(input: proc_macro::TokenStream) -> proc_macro::TokenSt
                 }
             }
         }
-        syn::Data::Enum(syn::DataEnum { variants, .. }) => {
-            let mod_ident = quote::format_ident!("__{}__Mod__Internals", ident);
-            let mod_pseudo_structs: proc_macro2::TokenStream = variants
+        Data::Enum(DataEnum { variants, .. }) => {
+            let mod_ident = format_ident!("__{}__Mod__Internals", ident);
+            let mod_pseudo_structs: TokenStream2 = variants
                 .iter()
                 .map(
-                    |syn::Variant {
+                    |Variant {
                          ident: v_ident,
                          fields,
                          ..
                      }| {
                         let terminator =
-                            if std::matches!(fields, syn::Fields::Unit | syn::Fields::Unnamed(_)) {
-                                <syn::Token![;]>::default().to_token_stream()
+                            if std::matches!(fields, Fields::Unit | Fields::Unnamed(_)) {
+                                <Token![;]>::default().to_token_stream()
                             } else {
-                                quote::quote! {}
+                                quote! {}
                             };
                         let field_assign = field_match_assign(&ident, v_ident, fields);
                         let unassign = field_match_unassign(v_ident, fields);
-                        quote::quote! {
+                        quote! {
                             #[derive(::update_sync::derive::UpdateSync, PartialEq)]
                             struct #v_ident #fields #terminator
                             impl #v_ident {
@@ -54,10 +60,10 @@ pub fn derive_update_sync(input: proc_macro::TokenStream) -> proc_macro::TokenSt
                     },
                 )
                 .collect();
-            let matches: proc_macro2::TokenStream = variants
+            let matches: TokenStream2 = variants
                 .iter()
-                .map(|syn::Variant { ident: v_ident, .. }| {
-                    quote::quote! {
+                .map(|Variant { ident: v_ident, .. }| {
+                    quote! {
                         #ident :: #v_ident { .. } => {
                             let last_base = #mod_ident :: #v_ident :: from_enum ( last_base ).unwrap();
                             let new_base = #mod_ident :: #v_ident :: from_enum ( new_base ).unwrap();
@@ -68,7 +74,7 @@ pub fn derive_update_sync(input: proc_macro::TokenStream) -> proc_macro::TokenSt
                     }
                 })
                 .collect();
-            quote::quote! {
+            quote! {
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
                 pub mod #mod_ident {
@@ -93,39 +99,37 @@ pub fn derive_update_sync(input: proc_macro::TokenStream) -> proc_macro::TokenSt
                 }
             }
         }
-        syn::Data::Union(_) => quote::quote! {},
+        Data::Union(_) => quote! {},
     }
     .into()
 }
 
-fn struct_update_fields(fields: &syn::Fields) -> proc_macro2::TokenStream {
+fn struct_update_fields(fields: &Fields) -> TokenStream2 {
     match fields {
-        syn::Fields::Named(syn::FieldsNamed { named: fields, .. })
-        | syn::Fields::Unnamed(syn::FieldsUnnamed {
+        Fields::Named(FieldsNamed { named: fields, .. })
+        | Fields::Unnamed(FieldsUnnamed {
             unnamed: fields, ..
         }) => {
             let fields = struct_update_named_or_unnamed(fields);
-            (quote::quote! { { #fields } }).into()
+            (quote! { { #fields } }).into()
         }
-        syn::Fields::Unit => quote::quote! {},
+        Fields::Unit => quote! {},
     }
 }
 
-fn struct_update_named_or_unnamed<T>(
-    fields: &syn::punctuated::Punctuated<syn::Field, T>,
-) -> proc_macro2::TokenStream {
+fn struct_update_named_or_unnamed<T>(fields: &Punctuated<Field, T>) -> TokenStream2 {
     fields
         .iter()
         .enumerate()
         .map(|(i, f)| {
             let field = f.ident.clone().map(|n| n.to_token_stream()).unwrap_or(
-                syn::Index {
+                Index {
                     index: i as u32,
-                    span: proc_macro2::Span::call_site(),
+                    span: Span2::call_site(),
                 }
                 .to_token_stream(),
             );
-            quote::quote! {
+            quote! {
                 #field: ::update_sync::UpdateSync::update_sync(
                     last_base.#field,
                     new_base.#field,
@@ -136,90 +140,86 @@ fn struct_update_named_or_unnamed<T>(
         .collect()
 }
 
-fn field_match_assign(
-    e_ident: &syn::Ident,
-    v_ident: &syn::Ident,
-    fields: &syn::Fields,
-) -> proc_macro2::TokenStream {
+fn field_match_assign(e_ident: &Ident, v_ident: &Ident, fields: &Fields) -> TokenStream2 {
     match fields {
-        syn::Fields::Named(syn::FieldsNamed { named, .. }) => {
-            let fields: proc_macro2::TokenStream = named
+        Fields::Named(FieldsNamed { named, .. }) => {
+            let fields: TokenStream2 = named
                 .iter()
-                .map(|syn::Field { ident, .. }| {
+                .map(|Field { ident, .. }| {
                     let ident = ident.as_ref().unwrap();
-                    quote::quote! {
+                    quote! {
                         #ident,
                     }
                 })
                 .collect();
-            quote::quote! {
+            quote! {
                 #e_ident :: #v_ident { #fields } => #v_ident { #fields },
             }
         }
-        syn::Fields::Unnamed(syn::FieldsUnnamed { unnamed, .. }) => {
-            let fields: proc_macro2::TokenStream = unnamed
+        Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
+            let fields: TokenStream2 = unnamed
                 .iter()
                 .enumerate()
                 .map(|(i, _)| {
-                    let ident = quote::format_ident!(
+                    let ident = format_ident!(
                         "__{}",
-                        syn::Index {
+                        Index {
                             index: i as u32,
-                            span: proc_macro2::Span::call_site(),
+                            span: Span2::call_site(),
                         }
                     );
-                    quote::quote! {
+                    quote! {
                         #ident,
                     }
                 })
                 .collect();
-            quote::quote! {
+            quote! {
                 #e_ident :: #v_ident ( #fields ) => #v_ident ( #fields ),
             }
         }
-        syn::Fields::Unit => quote::quote! {
+        Fields::Unit => quote! {
             #e_ident :: #v_ident => #v_ident,
         },
     }
 }
-fn field_match_unassign(v_ident: &syn::Ident, fields: &syn::Fields) -> proc_macro2::TokenStream {
+fn field_match_unassign(v_ident: &Ident, fields: &Fields) -> TokenStream2 {
     match fields {
-        syn::Fields::Named(syn::FieldsNamed { named, .. }) => {
-            let fields: proc_macro2::TokenStream = named
+        Fields::Named(FieldsNamed { named, .. }) => {
+            let fields: TokenStream2 = named
                 .iter()
-                .map(|syn::Field { ident, .. }| {
+                .map(|Field { ident, .. }| {
                     let ident = ident.as_ref().unwrap();
-                    quote::quote! {
+                    quote! {
                         #ident,
                     }
                 })
                 .collect();
-            quote::quote! {
+            quote! {
                 #v_ident { #fields }
             }
         }
-        syn::Fields::Unnamed(syn::FieldsUnnamed { unnamed, .. }) => {
-            let fields: proc_macro2::TokenStream = unnamed
+        Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
+            let fields: TokenStream2 = unnamed
                 .iter()
                 .enumerate()
                 .map(|(i, _)| {
-                    let ident = quote::format_ident!(
+                    let ident = format_ident!(
                         "__{}",
-                        syn::Index {
+                        Index {
                             index: i as u32,
-                            span: proc_macro2::Span::call_site(),
+                            span: Span2::call_site(),
                         }
                     );
-                    quote::quote! {
+                    quote! {
                         #ident,
                     }
                 })
                 .collect();
-            quote::quote! {
+            quote! {
                 #v_ident ( #fields )
             }
         }
-        syn::Fields::Unit => quote::quote! {
+        Fields::Unit => quote! {
             #v_ident
         },
     }
