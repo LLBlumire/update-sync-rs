@@ -117,3 +117,5 @@ fn enums_change_variant() {
     let is = UpdateSync::update_sync(base, one, two);
     assert_eq!(is, should_be);
 }
+
+mod demo;

@@ -41,3 +41,7 @@ Enums are updated such that if the variant stays the same, they are updated like
 I probably missed it, file an issue and I'll fix it.
 
 Unless it's a vector or similar, in that case you'll need operational transformations, which I'd love to implement for this but I'm not even sure what the best strategy to do so would be. If someone pull requests a sensible implementation I'll approve it.
+
+# Can I see a Demo of how this is supposed to be used?
+
+Sure, check out [`demo.rs`](update-sync_test/src/demo.rs)

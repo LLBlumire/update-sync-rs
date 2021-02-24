@@ -126,7 +126,7 @@ fn struct_update_named_or_unnamed<T>(
                 .to_token_stream(),
             );
             quote::quote! {
-                #field: UpdateSync::update_sync(
+                #field: ::update_sync::UpdateSync::update_sync(
                     last_base.#field,
                     new_base.#field,
                     set.#field,
