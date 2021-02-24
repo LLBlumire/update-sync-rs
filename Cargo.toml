@@ -1,0 +1,2 @@
+[workspace]
+members = ["update-sync", "update-sync_derive", "update-sync_test"]

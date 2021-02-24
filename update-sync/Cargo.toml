@@ -1,0 +1,10 @@
+[package]
+name    = "update-sync"
+version = "0.1.0"
+authors = ["llblumire"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+update-sync_derive = { path = "../update-sync_derive" }
