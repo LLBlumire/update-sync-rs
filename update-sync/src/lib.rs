@@ -3,6 +3,7 @@ use std::{
     hash::Hash,
 };
 
+#[cfg(feature = "derive")]
 pub mod derive {
     pub use update_sync_derive::*;
 }

@@ -90,3 +90,30 @@ fn with_unnamed_fields() {
 
     assert_eq!(is, should_be);
 }
+
+#[derive(update_sync::derive::UpdateSync, PartialEq, Debug)]
+enum MyEnum {
+    First(i32),
+    Second { foo: char, bar: u8 },
+    Third,
+}
+
+#[test]
+fn enums_same_variant() {
+    let base = MyEnum::Second { foo: '\0', bar: 0 };
+    let one = MyEnum::Second { foo: 'a', bar: 1 };
+    let two = MyEnum::Second { foo: '\0', bar: 2 };
+    let should_be = MyEnum::Second { foo: 'a', bar: 2 };
+    let is = UpdateSync::update_sync(base, one, two);
+    assert_eq!(is, should_be);
+}
+
+#[test]
+fn enums_change_variant() {
+    let base = MyEnum::Second { foo: '\0', bar: 0 };
+    let one = MyEnum::Second { foo: 'a', bar: 1 };
+    let two = MyEnum::First(0);
+    let should_be = MyEnum::First(0);
+    let is = UpdateSync::update_sync(base, one, two);
+    assert_eq!(is, should_be);
+}
