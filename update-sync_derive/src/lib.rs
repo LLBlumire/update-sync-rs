@@ -24,7 +24,7 @@ pub fn derive_update_sync(input: TokenStream1) -> TokenStream1 {
             }
         }
         Data::Enum(DataEnum { variants, .. }) => {
-            let mod_ident = format_ident!("__{}__Mod__Internals", ident);
+            let mod_ident = format_ident!("__{}__UpdateSync__Internals", ident);
             let mod_pseudo_structs: TokenStream2 = variants
                 .iter()
                 .map(
