@@ -1,8 +1,10 @@
 [package]
-name    = "update-sync_derive"
-version = "0.1.0"
-authors = ["Lucille L. Blumire <lucy@llblumire.co.uk>"]
-edition = "2018"
+name        = "update-sync_derive"
+version     = "0.1.0"
+authors     = ["Lucille L. Blumire <lucy@llblumire.co.uk>"]
+edition     = "2018"
+license     = "MIT or Apache-2.0"
+description = "Derive macros for `update-sync`. DO NOT CONSUME DIRECTLY"
 
 [lib]
 proc-macro = true
