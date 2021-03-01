@@ -12,4 +12,4 @@ default = []
 derive  = ["update-sync_derive"]
 
 [dependencies]
-update-sync_derive = { path = "../update-sync_derive", optional = true }
+update-sync_derive = { version = "0.1", optional = true }
